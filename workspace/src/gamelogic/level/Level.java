@@ -169,8 +169,8 @@ public class Level {
 				if (flowers.get(i).getHitbox().isIntersecting(player.getHitbox())) {
 					if(flowers.get(i).getType() == 1)
 						water(flowers.get(i).getCol(), flowers.get(i).getRow(), map, 3);
-//					else
-//						addGas(flowers.get(i).getCol(), flowers.get(i).getRow(), map, 20, new ArrayList<Gas>());
+					else
+						addGas(flowers.get(i).getCol(), flowers.get(i).getRow(), map, 20, new ArrayList<Gas>());
 					flowers.remove(i);
 					i--;
 				}
@@ -190,12 +190,27 @@ public class Level {
 			// Update the camera
 			camera.update(tslf);
 		}
-	}
-	
+	}	
 	
 	//#############################################################################################################
 	//Your code goes here! 
 	//Please make sure you read the rubric/directions carefully and implement the solution recursively!
+	
+	/*
+ * Recursively adds water tiles starting from (col, row) with given fullness.
+ *
+ * Preconditions:
+ * - col and row are within the map bounds.
+ * - fullness is an integer between 0 and 3 inclusive.
+ * - map is not null and contains valid tiles.
+ *
+ * Postconditions:
+ * - Water tiles are added starting at (col, row) spreading downwards first, then sideways.
+ * - Water tiles placed have fullness values decreasing by 1 as it spreads sideways.
+ * - Water does not replace solid tiles or existing water tiles.
+ * - Recursion stops when no further spreading is possible or fullness runs out.
+ */
+	
 	private void water(int col, int row, Map map, int fullness) {
 		//make water (You’ll need modify this to make different kinds of water such as half water and quarter water)
 
@@ -231,15 +246,24 @@ public class Level {
 
         //if we can’t go down go left and right
 
-	if (row + 1 < map.getHeight()) {
-		Tile below = map.getTiles()[col][row + 1];
-		if (!below.isSolid() && !(below instanceof Water)) {
-			// We are over air; this should be falling water, don't spread sideways
-			map.addTile(col, row, new Water(col, row, tileSize, tileset.getImage("Falling_water"), this, 0));
-			water(col, row + 1, map, 0);
-			return;
+		if (row + 1 < map.getHeight()) {
+			Tile below = map.getTiles()[col][row + 1];
+			if (!below.isSolid() && !(below instanceof Water)) {
+				// We are over air; this should be falling water, don't spread sideways
+				map.addTile(col, row, new Water(col, row, tileSize, tileset.getImage("Falling_water"), this, 0));
+				water(col, row + 1, map, 0);
+				return;
+			}
 		}
-	}
+
+		if(row < map.getTiles()[col].length - 2 && !map.getTiles()[col][row + 1].isSolid()) {
+			if(map.getTiles()[col][row + 1].isSolid()) {
+				water(col, row + 1, map, 3);
+			}
+			else {
+				water(col, row + 1, map, 0);
+			}
+		}
 
 		// Flow right (if not falling)
 		if (col + 1 < map.getTiles().length) {
@@ -274,53 +298,151 @@ public class Level {
 		}
 	}
 
+	//#############################################################################################################
+	/*
+ * Recursively adds gas tiles starting at (col, row) up to numSquaresToFill.
+ *
+ * Preconditions:
+ * - col and row are within map bounds.
+ * - numSquaresToFill is positive.
+ * - map is not null and contains valid tiles.
+ * - placedThisRound is not null and tracks newly placed Gas tiles.
+ *
+ * Postconditions:
+ * - Gas tiles are placed starting at (col, row), expanding in order:
+ *   up, left, right, down, diagonals.
+ * - Gas is only placed on non-solid, non-Gas tiles.
+ * - The method stops when numSquaresToFill reaches zero or no more valid tiles exist.
+ * - placedThisRound contains all newly placed Gas tiles.
+ */
+
+	private void addGas(int col, int row, Map map, int numSquaresToFill, ArrayList<Gas> placedThisRound) {
+		// Bounds check and tile check
+		if (col < 0 || col >= map.getWidth() || row < 0 || row >= map.getHeight()) return;
+		Tile[][] tiles = map.getTiles();
+		Tile startTile = tiles[col][row];
+		if (startTile.isSolid() || startTile instanceof Gas) return;
+		
+	    // Place initial gas tile
+		Gas g = new Gas (col, row, tileSize, tileset.getImage("GasOne"), this, 0);
+		map.addTile(col, row, g);
+		numSquaresToFill--;
+		placedThisRound.add(g);
+
+		// Queue of gas tiles to expand from
+		ArrayList<Gas> curr = new ArrayList<>();
+		curr.add(g);
+
+		while (!curr.isEmpty() && numSquaresToFill > 0) {
+			ArrayList<Gas> newCurr = new ArrayList<>();
+
+			for (Gas gas : curr) {
+				int gx = gas.getCol();
+				int gy = gas.getRow();
+
+				// Try to add gas in the order: up, left, right, down
+				int[][] directions = {
+					{0, -1}, // up
+					{-1, 0}, // left
+					{1, 0},  // right
+					{0, 1},  // down
+					{-1, -1}, //left-up
+					{-1, 1}, //left-down
+					{1, -1}, //right-up
+					{1, 1}  //right-down
+				};
+
+				for (int[] dir : directions) {
+					int nx = gx + dir[0];
+					int ny = gy + dir[1];
+
+					// Skip if out of bounds
+					if (nx < 0 || nx >= map.getWidth() || ny < 0 || ny >= map.getHeight())
+						continue;
+
+					Tile nextTile = tiles[nx][ny];
+					// Place gas if tile is not solid or already gas
+					if (!nextTile.isSolid() && !(nextTile instanceof Gas)) {
+						Gas newGas = new Gas(nx, ny, tileSize, tileset.getImage("GasOne"), this, 0);
+						map.addTile(nx, ny, newGas);
+						placedThisRound.add(newGas); 
+						newCurr.add(newGas);
+						numSquaresToFill--;
+						
 
 
-		//right
-		/*
-		else {
-			if(col + 1 < map.getTiles().length && !(map.getTiles()[col + 1][row] instanceof Water) && !map.getTiles()[col + 1][row].isSolid()) {
-				water(col + 1, row, map, 3);
+						if (numSquaresToFill == 0)
+							return; // Stop once we've placed enough
+					}
+				}
 			}
-			//left
-			if(col - 1 >= 0 && !(map.getTiles()[col - 1][row] instanceof Water) && !map.getTiles()[col + 1][row].isSolid()) {
-				water(col - 1, row, map, 3);
-			}
-		}
-		*/
+
+        	curr = newCurr;
+    	}
+	}
 
 	
-
-	//#############################################################################################################
+	
 
 	public void draw(Graphics g) {
-		g.translate((int) -camera.getX(), (int) -camera.getY());
+	   	 g.translate((int) -camera.getX(), (int) -camera.getY());
+	   	 // Draw the map
+	   	 for (int x = 0; x < map.getWidth(); x++) {
+	   		 for (int y = 0; y < map.getHeight(); y++) {
+	   			 Tile tile = map.getTiles()[x][y];
+	   			 if (tile == null)
+	   				 continue;
+	   			 if(tile instanceof Gas) {
+	   				
+	   				 int adjacencyCount =0;
+	   				 for(int i=-1; i<2; i++) {
+	   					 for(int j =-1; j<2; j++) {
+	   						 if(j!=0 || i!=0) {
+	   							 if((x+i)>=0 && (x+i)<map.getTiles().length && (y+j)>=0 && (y+j)<map.getTiles()[x].length) {
+	   								 if(map.getTiles()[x+i][y+j] instanceof Gas) {
+	   									 adjacencyCount++;
+	   								 }
+	   							 }
+	   						 }
+	   					 }
+	   				 }
+	   				 if(adjacencyCount == 8) {
+	   					 ((Gas)(tile)).setIntensity(2);
+	   					 tile.setImage(tileset.getImage("GasThree"));
+	   				 }
+	   				 else if(adjacencyCount >5) {
+	   					 ((Gas)(tile)).setIntensity(1);
+	   					tile.setImage(tileset.getImage("GasTwo"));
+	   				 }
+	   				 else {
+	   					 ((Gas)(tile)).setIntensity(0);
+	   					tile.setImage(tileset.getImage("GasOne"));
+	   				 }
+	   			 }
+	   			 if (camera.isVisibleOnCamera(tile.getX(), tile.getY(), tile.getSize(), tile.getSize()))
+	   				 tile.draw(g);
+	   		 }
+	   	 }
 
-		// Draw the map
-		for (int x = 0; x < map.getWidth(); x++) {
-			for (int y = 0; y < map.getHeight(); y++) {
-				Tile tile = map.getTiles()[x][y];
-				if (tile == null)
-					continue;
-				if (camera.isVisibleOnCamera(tile.getX(), tile.getY(), tile.getSize(), tile.getSize()))
-					tile.draw(g);
-			}
-		}
 
-		// Draw the enemies
-		for (int i = 0; i < enemies.length; i++) {
-			enemies[i].draw(g);
-		}
+	   	 // Draw the enemies
+	   	 for (int i = 0; i < enemies.length; i++) {
+	   		 enemies[i].draw(g);
+	   	 }
 
-		// Draw the player
-		player.draw(g);
 
-		// used for debugging
-		if (Camera.SHOW_CAMERA)
-			camera.draw(g);
+	   	 // Draw the player
+	   	 player.draw(g);
 
-		g.translate((int) +camera.getX(), (int) +camera.getY());
-	}
+
+
+
+	   	 // used for debugging
+	   	 if (Camera.SHOW_CAMERA)
+	   		 camera.draw(g);
+	   	 g.translate((int) +camera.getX(), (int) +camera.getY());
+	    }
+
 
 	// --------------------------Die-Listener
 	public void throwPlayerDieEvent() {

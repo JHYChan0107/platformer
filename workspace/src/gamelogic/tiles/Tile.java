@@ -63,4 +63,10 @@ public class Tile{
 	public int getSize() {
 		return size;
 	}
+
+	//setter for image variable
+
+	public void setImage(BufferedImage img) {
+		image = img;
+	}
 }
