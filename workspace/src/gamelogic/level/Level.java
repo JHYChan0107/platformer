@@ -249,8 +249,9 @@ public class Level {
 					Tile belowRight = map.getTiles()[col + 1][row + 1];
 					 if (fullness >= 1) {
 						water(col + 1, row, map, fullness - 1); // reduce fullness
-					} else {
-						water(col + 1, row, map, 1); // keep spreading quarter water
+					} 
+					else {
+						water(col + 1, row, map, 0); // keep spreading falling water
 					}
 				}
 			}
@@ -266,7 +267,7 @@ public class Level {
 					if (fullness >= 1) {
 						water(col - 1, row, map, fullness - 1); // reduce fullness
 					} else {
-						water(col - 1, row, map, 1); // keep spreading quarter water
+						water(col - 1, row, map, 0); // keep spreading falling water
 					}
 				}
 			}
