@@ -212,91 +212,55 @@ public class Level {
  */
 	
 	private void water(int col, int row, Map map, int fullness) {
-		//make water (You’ll need modify this to make different kinds of water such as half water and quarter water)
+	if (col < 0 || col >= map.getWidth() || row < 0 || row >= map.getHeight()) return;
 
-		if (col < 0 || col >= map.getWidth() || row < 0 || row >= map.getHeight()) return;
+	Tile current = map.getTiles()[col][row];
+	if (current.isSolid() || current instanceof Water) return;
 
-		Tile current = map.getTiles()[col][row];
+	// Determine correct image based on fullness
+	String imageName;
+	if (fullness >= 3) imageName = "Full_water";
+	else if (fullness == 2) imageName = "Half_water";
+	else if (fullness == 1) imageName = "Quarter_water";
+	else imageName = "Falling_water";
 
-		if (current.isSolid() || current instanceof Water) return;
+	Water w = new Water(col, row, tileSize, tileset.getImage(imageName), this, fullness);
+	map.addTile(col, row, w);
 
-		String imageName;
-		if (fullness == 3) {
-			imageName = "Full_water";
-		} else if (fullness == 2) {
-			imageName = "Half_water";
-		} else if (fullness == 1) {
-			imageName = "Quarter_water";
-		} else {
-			imageName = "Falling_water";
-		}
-
-		Water w = new Water(col, row, tileSize, tileset.getImage(imageName), this, fullness);
-		map.addTile(col, row, w);
-
-
-        //check if we can go down
-		if (row + 1 < map.getTiles()[0].length) {
-			Tile below = map.getTiles()[col][row + 1];
-			if (!below.isSolid() && !(below instanceof Water)) {
-				water(col, row + 1, map, 0); // 0 = falling water
-				return; // Stop here; no side flow if falling
-			}
-		}
-
-        //if we can’t go down go left and right
-
-		if (row + 1 < map.getHeight()) {
-			Tile below = map.getTiles()[col][row + 1];
-			if (!below.isSolid() && !(below instanceof Water)) {
-				// We are over air; this should be falling water, don't spread sideways
-				map.addTile(col, row, new Water(col, row, tileSize, tileset.getImage("Falling_water"), this, 0));
-				water(col, row + 1, map, 0);
-				return;
-			}
-		}
-
-		if(row < map.getTiles()[col].length - 2 && !map.getTiles()[col][row + 1].isSolid()) {
-			if(map.getTiles()[col][row + 1].isSolid()) {
-				water(col, row + 1, map, 3);
-			}
-			else {
-				water(col, row + 1, map, 0);
-			}
-		}
-
-		// Flow right (if not falling)
-		if (col + 1 < map.getTiles().length) {
-			Tile right = map.getTiles()[col + 1][row];
-			if (!right.isSolid() && !(right instanceof Water)) {
-				if (row + 1 < map.getTiles()[0].length) {
-					Tile belowRight = map.getTiles()[col + 1][row + 1];
-					 if (fullness >= 1) {
-						water(col + 1, row, map, fullness - 1); // reduce fullness
-					} 
-					else {
-						water(col + 1, row, map, 0); // keep spreading falling water
-					}
-				}
-			}
-		}
-		
-		// Flow left (if not falling)
-		
-		if (col - 1 >= 0) {
-			Tile left = map.getTiles()[col - 1][row];
-			if (!left.isSolid() && !(left instanceof Water)) {
-				if (row + 1 < map.getTiles()[0].length) {
-					Tile belowLeft = map.getTiles()[col - 1][row + 1];
-					if (fullness >= 1) {
-						water(col - 1, row, map, fullness - 1); // reduce fullness
-					} else {
-						water(col - 1, row, map, 0); // keep spreading falling water
-					}
-				}
+	// Try to flow downward
+	if (row + 1 < map.getHeight()) {
+		Tile below = map.getTiles()[col][row + 1];
+		if (!below.isSolid() && !(below instanceof Water)) {
+			// Continue falling
+			water(col, row + 1, map, 0);
+			return; // Don't spread sideways when falling
+		} else if (below.isSolid()) {
+			// Convert falling water to full water on solid ground
+			if (fullness == 0) {
+				map.addTile(col, row, new Water(col, row, tileSize, tileset.getImage("Full_water"), this, 3));
+				fullness = 3; // Update fullness for lateral spread
 			}
 		}
 	}
+
+	// Sideways spread only if fullness > 1
+	if (fullness > 1) {
+		// Flow right
+		if (col + 1 < map.getWidth()) {
+			Tile right = map.getTiles()[col + 1][row];
+			if (!right.isSolid() && !(right instanceof Water)) {
+				water(col + 1, row, map, fullness - 1);
+			}
+		}
+		// Flow left
+		if (col - 1 >= 0) {
+			Tile left = map.getTiles()[col - 1][row];
+			if (!left.isSolid() && !(left instanceof Water)) {
+				water(col - 1, row, map, fullness - 1);
+			}
+		}
+	}
+}
 
 	//#############################################################################################################
 	/*
