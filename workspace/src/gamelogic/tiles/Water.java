@@ -22,4 +22,9 @@ public class Water extends Tile{
 	public void setIntensity(int fullness) {
 		this.fullness = fullness;
 	}
+
+    public static void add(Water w) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'add'");
+    }
 }

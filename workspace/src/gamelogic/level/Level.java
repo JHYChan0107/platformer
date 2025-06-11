@@ -16,6 +16,7 @@ import gamelogic.tiledMap.Map;
 import gamelogic.tiles.Flag;
 import gamelogic.tiles.Flower;
 import gamelogic.tiles.Gas;
+import gamelogic.tiles.Portal;
 import gamelogic.tiles.SolidTile;
 import gamelogic.tiles.Spikes;
 import gamelogic.tiles.Tile;
@@ -38,6 +39,10 @@ public class Level {
 
 	private List<PlayerDieListener> dieListeners = new ArrayList<>();
 	private List<PlayerWinListener> winListeners = new ArrayList<>();
+	private ArrayList<Water> waters = new ArrayList<>();
+	private ArrayList<Gas> gases = new ArrayList<>();
+	//private ArrayList<Portal> portals = new ArrayList<>();
+
 
 	private Mapdata mapdata;
 	private int width;
@@ -45,6 +50,11 @@ public class Level {
 	private int tileSize;
 	private Tileset tileset;
 	public static float GRAVITY = 70;
+	private long timer = System.currentTimeMillis();
+	
+	private long gasExposureStart = -1; // -1 means not in gas
+	private static final long GAS_DEATH_TIME = 5000; // 5 seconds in ms
+
 
 	public Level(LevelData leveldata) {
 		this.leveldata = leveldata;
@@ -62,6 +72,8 @@ public class Level {
 	public void restartLevel() {
 		int[][] values = mapdata.getValues();
 		Tile[][] tiles = new Tile[width][height];
+		waters = new ArrayList();
+		gases = new ArrayList();
 
 		for (int x = 0; x < width; x++) {
 			int xPosition = x;
@@ -110,14 +122,31 @@ public class Level {
 					tiles[x][y] = new Gas(xPosition, yPosition, tileSize, tileset.getImage("GasTwo"), this, 2);
 				else if (values[x][y] == 17)
 					tiles[x][y] = new Gas(xPosition, yPosition, tileSize, tileset.getImage("GasThree"), this, 3);
-				else if (values[x][y] == 18)
+				else if (values[x][y] == 18) {
 					tiles[x][y] = new Water(xPosition, yPosition, tileSize, tileset.getImage("Falling_water"), this, 0);
-				else if (values[x][y] == 19)
+					waters.add((Water)tiles[x][y]);
+				}
+				else if (values[x][y] == 19) {
 					tiles[x][y] = new Water(xPosition, yPosition, tileSize, tileset.getImage("Full_water"), this, 3);
-				else if (values[x][y] == 20)
+					waters.add((Water)tiles[x][y]);
+				}
+				else if (values[x][y] == 20) {
 					tiles[x][y] = new Water(xPosition, yPosition, tileSize, tileset.getImage("Half_water"), this, 2);
-				else if (values[x][y] == 21)
+					waters.add((Water)tiles[x][y]);
+				}
+				else if (values[x][y] == 21) {
 					tiles[x][y] = new Water(xPosition, yPosition, tileSize, tileset.getImage("Quarter_water"), this, 1);
+					waters.add((Water)tiles[x][y]);
+				}
+				
+				/*
+				else if (values[x][y] == 22) { // Entrance portal
+					tiles[x][y] = new Portal(xPosition, yPosition, tileSize, tileset.getImage("Entrance_Door"), this, true);
+				} else if (values[x][y] == 23) { // Exit portal
+					tiles[x][y] = new Portal(xPosition, yPosition, tileSize, tileset.getImage("Exit_Door"), this, false);
+				}
+				*/
+
 			}
 
 		}
@@ -176,6 +205,41 @@ public class Level {
 				}
 			}
 
+			boolean didITouchWater = false;
+			for(Water w: waters) {
+				if(w.getHitbox().isIntersecting(player.getHitbox())) {
+					System.out.println("Touching Water");
+					didITouchWater = true;
+					player.walkSpeed = 200;
+				}
+			}
+			if(!didITouchWater) {
+				//System.out.println("Never Touched Water");
+				player.walkSpeed = 400;
+			}
+
+			boolean inGas = false;
+
+			for (Gas g : gases) {
+				if (g.getHitbox().isIntersecting(player.getHitbox())) {
+					inGas = true;
+					break; // Only need to find one gas tile
+				}
+			}
+
+			if (inGas) {
+				if (gasExposureStart == -1) {
+					gasExposureStart = System.currentTimeMillis(); // Start timer
+				} else {
+					long now = System.currentTimeMillis();
+					if (now - gasExposureStart > GAS_DEATH_TIME) {
+						onPlayerDeath();
+					}
+				}
+			} else {
+				gasExposureStart = -1; // Reset timer when out of gas
+			}
+
 			// Update the enemies
 			for (int i = 0; i < enemies.length; i++) {
 				enemies[i].update(tslf);
@@ -190,7 +254,33 @@ public class Level {
 			// Update the camera
 			camera.update(tslf);
 		}
-	}	
+
+		/* 
+		// Portal teleportation
+		Portal entrance = null;
+		Portal exit = null;
+
+		for (int x = 0; x < map.getWidth(); x++) {
+			for (int y = 0; y < map.getHeight(); y++) {
+				Tile tile = map.getTiles()[x][y];
+				if (tile instanceof Portal) {
+					Portal portal = (Portal) tile;
+					if (portal.isEntrance()) {
+						entrance = portal;
+					} else {
+						exit = portal;
+					}
+				}
+			}
+		}
+
+		if (entrance != null && exit != null && entrance.getHitbox().isIntersecting(player.getHitbox())) {
+			// Teleport the player to exit
+			player.setX(exit.getX());
+			player.setY(exit.getY());
+		}
+		*/
+	}		
 	
 	//#############################################################################################################
 	//Your code goes here! 
@@ -220,12 +310,14 @@ public class Level {
 	// Determine correct image based on fullness
 	String imageName;
 	if (fullness >= 3) imageName = "Full_water";
+	
 	else if (fullness == 2) imageName = "Half_water";
 	else if (fullness == 1) imageName = "Quarter_water";
 	else imageName = "Falling_water";
 
 	Water w = new Water(col, row, tileSize, tileset.getImage(imageName), this, fullness);
 	map.addTile(col, row, w);
+	waters.add(w);
 
 	// Try to flow downward
 	if (row + 1 < map.getHeight()) {
@@ -292,6 +384,8 @@ public class Level {
 		map.addTile(col, row, g);
 		numSquaresToFill--;
 		placedThisRound.add(g);
+		gases.add(g);
+
 
 		// Queue of gas tiles to expand from
 		ArrayList<Gas> curr = new ArrayList<>();
@@ -341,13 +435,29 @@ public class Level {
 				}
 			}
 
-        	curr = newCurr;
+    	    	curr = newCurr;
     	}
+	}	
+
+//---------------------------------------------------------PORTAL MODIFICATIONS--------------------------------------------------------//
+	/*
+	public void portals(int col, int row, Map map) {
+		if (col < 0 || col >= map.getWidth() || row < 0 || row >= map.getHeight()) return;
+		Tile[][] tiles = map.getTiles();
+		Tile startTile = tiles[col][row];
+		if (startTile.isSolid() || startTile instanceof Portal) return;
+		
+		Portal p1 = new Portal(col, row, tileSize, tileset.getImage("Entrance_Door"), this);
+		Portal p2 = new Portal(col, row, tileSize, tileset.getImage("Exit_Door"), this);
+
+		map.addTile(col, row, p1);
+		map.addTile(col, row, p2);
+
+		
 	}
 
+	*/
 	
-	
-
 	public void draw(Graphics g) {
 	   	 g.translate((int) -camera.getX(), (int) -camera.getY());
 	   	 // Draw the map
@@ -398,13 +508,23 @@ public class Level {
 	   	 // Draw the player
 	   	 player.draw(g);
 
-
-
-
 	   	 // used for debugging
 	   	 if (Camera.SHOW_CAMERA)
 	   		 camera.draw(g);
 	   	 g.translate((int) +camera.getX(), (int) +camera.getY());
+
+		 // Draw gas timer if the player is exposed
+		if (gasExposureStart != -1) {
+			long now = System.currentTimeMillis();
+			long timeLeft = GAS_DEATH_TIME - (now - gasExposureStart);
+
+			if (timeLeft < 0) timeLeft = 0;
+
+			g.setColor(java.awt.Color.RED);
+			g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 24));
+			g.drawString("Gas Timer: " + (timeLeft / 1000.0) + "s", (int)camera.getX() + 20, (int)camera.getY() + 40);
+		}
+
 	    }
 
 

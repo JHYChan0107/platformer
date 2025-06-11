@@ -42,4 +42,9 @@ public class Tileset {
 	public Map<Integer, BufferedImage> getIdImages(){
 		return idImages;
 	}
+
+    public <Graphics> void render(Graphics g) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'render'");
+    }
 }
